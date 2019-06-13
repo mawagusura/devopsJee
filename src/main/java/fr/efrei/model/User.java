@@ -53,8 +53,11 @@ public class User {
      * @return true si deux utilisateurs sont similaires, false sinon
      */
     public boolean isCorrect(List<User> ids){
-
-        return ids.stream().anyMatch((user) -> (user.login.equals(this.login) && user.pwd.equals(this.pwd)));
-        
+        for(User user : ids){
+            if((user.login.equals(this.login) && user.pwd.equals(this.pwd))){
+                return true;
+            }
+        }
+        return false;
     }
 }
