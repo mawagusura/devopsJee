@@ -1,6 +1,9 @@
 package fr.efrei.controller;
 
 
+import fr.efrei.model.DataSources;
+import fr.efrei.model.Employe;
+import fr.efrei.model.User;
 import java.io.IOException;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -10,23 +13,16 @@ import javax.servlet.http.HttpSession;
 
 import static fr.efrei.constants.Constants.*; //import des constantes de type action
 import static fr.efrei.constants.PathConstants.*; //import des constantes de type chemins
-import fr.efrei.model.dao.EmployesDaoLocal;
-import fr.efrei.model.dao.IdentifiantsDaoLocal;
-import fr.efrei.model.entities.Employes;
-import fr.efrei.model.entities.Identifiants;
-import javax.ejb.EJB;
 
 /**
- * Controller principal de notre application
+ * Controller principal de notre aplication
  * @author Clément
  */
 public class Controller extends HttpServlet {
-    @EJB
-    private IdentifiantsDaoLocal identifiantsDao;
-    @EJB
-    private EmployesDaoLocal employesDao;
     
-    private int actionChoosed; //0 -> ajouter employe ... 1->update employe
+    private final DataSources ds=new DataSources();
+    
+    private int actionChoosed; //Permet de faire la difference entre la view d'insert et d'update
     
     
     /**
@@ -39,25 +35,12 @@ public class Controller extends HttpServlet {
     protected void processRequest(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
         
-        
-        
         String actionToProceed=EMPTY_STRING;
         if(request.getParameter(ACTION)!=null){
             actionToProceed=request.getParameter(ACTION);//reference vers name="xxx" de l'HTML
         }else{//un utilisateur arrive sur index, on verifie s'il a une session
-            if(request.getSession().getAttribute(USER)!=null){//il a une session car il ne s'est pas déco
+            if(request.getSession().getAttribute(USER)!=null)//il a une session car il ne s'est pas déco
                 actionToProceed=ACTION_GET_LIST;
-            }
-        }
-
-        if(request.getSession().getAttribute(USER)==null && 
-                !(actionToProceed.equals(EMPTY_STRING)||actionToProceed.equals(ACTION_LOGIN)))
-        {
-            //l'utilisateur s'est deconnecté d'une autre session. 
-            //il perd donc automatiquement tte ces sessions !
-            
-            actionToProceed=EMPTY_STRING;
-            
         }
         
         switch(actionToProceed){ 
@@ -84,9 +67,9 @@ public class Controller extends HttpServlet {
                 this.redirectToEmployesView(request, response,2);
                 break;
             
-            case ACTION_DISCONNECT:
+            case DISCONNECT:
                 request.getSession().removeAttribute(USER);
-                request.getRequestDispatcher(DISCONNECT_VIEW).forward(request, response);
+                request.getRequestDispatcher(GOODBYE_VIEW).forward(request, response);
                 break;
                 
             default:
@@ -119,6 +102,7 @@ public class Controller extends HttpServlet {
     /**
      * Vérifie si l'identifiant correspond bien à un utilisateur
      * puis redirige vers la liste des employés si c'est correct
+     * S'il n'y a pas d'utilisateurs en BD => problème de connexion au SGBD
      * @param request
      * @param response
      * @throws ServletException
@@ -129,32 +113,40 @@ public class Controller extends HttpServlet {
         
         
         HttpSession session=request.getSession();
-        
-        
+
         if(request.getParameter(USER).equals(EMPTY_STRING) || request.getParameter(PASSWORD).equals(EMPTY_STRING)){
             
             request.setAttribute(ERROR_MESSAGE, ERROR_MESSAGE_FILL_ALL);
             request.getRequestDispatcher(INDEX_PATH).forward(request, response);
             
         }else{
+            User input = new User();
             
-            Identifiants identifiant=identifiantsDao.getIdentifiants(request.getParameter(USER),request.getParameter(PASSWORD));
+            input.setLogin(request.getParameter(USER));
+            input.setPwd(request.getParameter(PASSWORD));
+            
+            session.setAttribute(USER, input);
             
 
-            if(identifiant!=null){
-                session.setAttribute(USER, identifiant);
-                request.setAttribute(EMPLOYES,employesDao.getAllEmployes() );
+            if(input.isCorrect(ds.getAllUsers())){
+                request.setAttribute(EMPLOYES, ds.getAllEmployes());
                 request.getRequestDispatcher(WELCOME_PATH).forward(request, response);
             }
             else{
-                request.setAttribute(ERROR_MESSAGE, ERROR_MESSAGE_FAILURE);
+                if(ds.getAllUsers().isEmpty()){
+                    request.setAttribute(ERROR_MESSAGE, ERROR_MESSAGE_BDD);
+                }
+                else{
+                    request.setAttribute(ERROR_MESSAGE, ERROR_MESSAGE_FAILURE);
+                }
+                
                 request.getRequestDispatcher(INDEX_PATH).forward(request, response);
             }
         }
         
     }
     
-    /**
+     /**
      * Permet de savoir si on insert ou update un employé
      * @param request
      * @param response
@@ -174,8 +166,9 @@ public class Controller extends HttpServlet {
         }
     }
     
-    /**
+     /**
      * Permet de déclencher la suppression d'un employe
+     * Si hasSucced est à false, affichage indiquant une erreur SGBD
      * @param request
      * @param response
      * @throws ServletException
@@ -185,15 +178,8 @@ public class Controller extends HttpServlet {
             throws ServletException, IOException {
         
         
-        boolean hasSucceed=true;
-        
-        //Error Manager for JPA 
-        //Can't reconnect after connection lost
-        try{
-            employesDao.deleteSpecificEmploye(Integer.parseInt(request.getParameter(RADIOS_VALUE)));
-        }catch(javax.ejb.EJBException e){
-                hasSucceed=false;
-        }    
+        boolean hasSucceed=ds.deleteSpecificEmploye(Integer.parseInt(request.getParameter(RADIOS_VALUE)));
+
         if(hasSucceed){
             this.redirectToEmployesView(request, response,1);
             
@@ -205,10 +191,15 @@ public class Controller extends HttpServlet {
         }
     }
     
+    
     /**
-     * Déclenche l'affichage d'un employé
+     * Permet d'afficher le détail d'un employé
      * @param request
      * @param response
+     * @param message : 
+     *      1.vide => on affiche l'employé et le message s'il y'en a un
+     *      2.erreur formattage => on affiche l'employé modifié et un MSG erreur formattage
+     *      3.erreur SGBD => on affiche un MSG erreur SGBD
      * @throws ServletException
      * @throws IOException 
      */
@@ -219,22 +210,48 @@ public class Controller extends HttpServlet {
         
         this.actionChoosed=1;
         
+       
         request.setAttribute(ACTION_CHOOSED,this.actionChoosed);
         request.setAttribute(ERROR_MESSAGE_EMPLOYE,message);
         
+        //No error(=empty) we compute a new Employ with the DB
         if(message.equals(EMPTY_STRING)){
-            session.setAttribute(EMPLOYE,employesDao.getEmploye(Integer.parseInt(request.getParameter(RADIOS_VALUE))));
-        }
-        else{
-            session.setAttribute(EMPLOYE,(Employes)session.getAttribute(EMPLOYE));
+            
+            if(!this.computeEmployeWithDataBase(session,request)){
+                request.setAttribute(ERROR_MESSAGE_EMPLOYE,ERROR_MESSAGE_BDD);
+            }
+        
         }
         request.getRequestDispatcher(EMPLOYE_VIEW).forward(request, response);
-
+            
+        
+        
     }
     
+    /**
+     * Permet de créer un employé et de l'insérer en attribut de session
+     * La fabrication se passe mal et l'indique en cas de mauvaise connexion au SGBD
+     * @param session
+     * @param response
+     * @param request
+     * @return false: erreur SGBD, true : on a bien recupéré les infos de l'employé
+     * @throws ServletException
+     * @throws IOException 
+     */
+    private boolean computeEmployeWithDataBase(HttpSession session,HttpServletRequest request)
+        throws ServletException, IOException{
+        
+        Employe emp=ds.getSpecificEmploye(Integer.parseInt(request.getParameter(RADIOS_VALUE)));
+        session.setAttribute(EMPLOYE, emp);
+        
+        return emp != null;
+        
+    }
     
     /**
-     * Déclenche l'insertion d'un employé
+     * Déclenche l'insertion d'un employé dans la BDD après deux controles:
+     *      1.Contrôle de la présence de tout les champs et du bon formattage (erreur formattage)
+     *      2.Connexion au SGBD effective (erreur_BDD)
      * @param request
      * @param response
      * @throws ServletException
@@ -243,24 +260,30 @@ public class Controller extends HttpServlet {
     private void toInsert(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
        
-        Employes emp=this.buildEmploye(request,0,false);
-        
-        if(emp==null){
+     
+        Employe emp=this.buildEmploye(request,0,false);
+        if(emp==null){//erreur de format
             this.redirectToInsertEmployeView(request, response, ERROR_MESSAGE_FORMAT);
-        }else{
-            try{
-                employesDao.insertEmploye(emp);
-                this.redirectToEmployesView(request, response,2);
-            }catch(javax.ejb.EJBException e){
-                this.redirectToInsertEmployeView(request, response, ERROR_CREATION_EJB);
-            }
-            
         }
-        
+        else{
+            boolean hasSucceed=ds.insertEmploye(emp);
+
+
+            if(hasSucceed){
+
+                this.redirectToEmployesView(request, response,2);
+
+            }
+            else{//erreur de BD
+                this.redirectToInsertEmployeView(request, response, ERROR_MESSAGE_BDD);
+            }
+        }
     }
     
     /**
-     * déclenche la MaJ d'un employé
+     * Déclenche la MaJ d'un employé dans la BDD après deux controles:
+     *      1.Contrôle de la présence de tout les champs et du bon formattage (erreur formattage)
+     *      2.Connexion au SGBD effective (erreur_BDD)
      * @param request
      * @param response
      * @throws ServletException
@@ -270,103 +293,49 @@ public class Controller extends HttpServlet {
             throws ServletException, IOException {
         
         HttpSession session=request.getSession();
-        Employes emp=(Employes)session.getAttribute(EMPLOYE);
         
-        Employes newEmp=this.buildEmploye(request, emp.getId(),false);
-        try{
-            if(newEmp==null){//erreur de formattage
-                session.setAttribute(EMPLOYE, this.buildEmploye(request, emp.getId(),true));
-                this.displayEmployeDetail(request, response, ERROR_MESSAGE_FORMAT);
-
-            }else{
-
-                    employesDao.updateEmploye(newEmp);
-                    this.redirectToEmployesView(request, response,2);
-
-                    
-                }
-            }catch(javax.ejb.EJBException e){
-                session.setAttribute(EMPLOYE, this.buildEmploye(request, emp.getId(),true));
-                this.displayEmployeDetail(request, response,ERROR_CREATION_EJB );
+        Employe emp=(Employe)session.getAttribute(EMPLOYE); 
+        Employe newEmp=this.buildEmploye(request, emp.getId(),false); 
+        
+        if(newEmp==null){//erreur de formattage
+            session.setAttribute(EMPLOYE,this.buildEmploye(request, emp.getId(),true));
+            this.displayEmployeDetail(request, response, ERROR_MESSAGE_FORMAT);
+        }
+        else{
+            if(ds.updateEmploye(newEmp)){ //success
+                this.redirectToEmployesView(request, response,2);
+            }else{//erreur de BDD
+                session.setAttribute(EMPLOYE,newEmp);
+                this.displayEmployeDetail(request, response, ERROR_MESSAGE_BDD);
             }
         }
-       
         
+    }
     
     
     /**
-     * Permet la création d'un objet de type Employes en verifiant bien que tout les champs correspondent
+     * Permet la création d'un objet de type Employes
      * @param request
      * @param id de l'employe à créer
-     * @return null si le formattage ne correspond pas
+     * @param withoutChecking permet de garder l'affichage d'un employé malgrès les erreurs de formattage
+     * @return null si l'employé est mal formatté ou un Employe si le formattage est correcte
      */
-    private Employes buildEmploye(HttpServletRequest request,int id,boolean withoutChecking){
+    private Employe buildEmploye(HttpServletRequest request,int id,boolean withoutChecking){
+        
         if(!withoutChecking){
             if(!checkFormat(request))
             {
                 return null;
             }
         }
-        return new Employes(id,request.getParameter(EMPLOYE_NOM),request.getParameter(EMPLOYE_PRENOM),
+        
+        return new Employe(id,request.getParameter(EMPLOYE_NOM),request.getParameter(EMPLOYE_PRENOM),
                                     request.getParameter(EMPLOYE_TEL_DOM),request.getParameter(EMPLOYE_TEL_MOB),
                                     request.getParameter(EMPLOYE_TEL_PRO),request.getParameter(EMPLOYE_ADR),
                                     request.getParameter(EMPLOYE_CP),request.getParameter(EMPLOYE_VILLE),
                                     request.getParameter(EMPLOYE_MAIL));
     }
     
-    
-    
-    /**
-     * Redirige vers la liste des employés et affiche ou non un msg selon le scénario dans lequel on se situe
-     * @param request
-     * @param response
-     * @param typeMessage
-     *        Values possible:         //0 -> error MSG en rouge pour bienvenue.jsp et employeView.jsp
-     *                                 //1 -> Information msg en bleu pour bienvenue.jsp
-     *                                 //2 -> On affiche plus rien
-     * @throws ServletException
-     * @throws IOException 
-     */
-    private void redirectToEmployesView(HttpServletRequest request, HttpServletResponse response,int typeMessage)
-            throws ServletException, IOException{
-        
-        request.getSession().removeAttribute(EMPLOYE);
-        request.setAttribute(EMPLOYES, employesDao.getAllEmployes());
-        request.setAttribute(TYPE_MESSAGE,typeMessage);
-        request.getRequestDispatcher(WELCOME_PATH).forward(request, response);
-        
-    }
-    
-    /**
-     * Redirige vers l'insertion d'un employé et affiche un msg d'erreur si échec
-     * @param request
-     * @param response
-     * @param typeMessage
-     *        Values possible:         //0 -> error MSG en rouge pour bienvenue.jsp et employeView.jsp
-     *                                 //1 -> Information msg en bleu pour bienvenue.jsp
-     *                                 //2 -> On affiche plus rien
-     * @throws ServletException
-     * @throws IOException 
-     */
-    private void redirectToInsertEmployeView(HttpServletRequest request, HttpServletResponse response,String message)
-            throws ServletException, IOException{
-        
-        this.actionChoosed=0;
-        
-        HttpSession session=request.getSession();
-        
-        request.setAttribute(ACTION_CHOOSED,actionChoosed);
-        request.setAttribute(ERROR_MESSAGE_EMPLOYE, message);
-        
-        if(!message.equals(EMPTY_STRING))//cela signifie qu'il s'est trompé donc on sauvegarde ce qu'il a déja ecris
-            session.setAttribute(EMPLOYE,this.buildEmploye(request, actionChoosed, true));
-        else{
-            session.setAttribute(EMPLOYE,null);
-        }
-        
-        request.getRequestDispatcher(EMPLOYE_VIEW).forward(request, response);
-    }
-
     /**
      * Permet de tester le bon formattage des champs lors de l'insertion / MaJ d'un employé
      * @param request
@@ -407,6 +376,59 @@ public class Controller extends HttpServlet {
         
         return true;
     }
+    
+    /**
+     * Redirige vers la liste des employés et affiche ou non un msg selon le scénario dans lequel on se situe
+     * @param request
+     * @param response
+     * @param typeMessage
+     *        Values possible:         //0 -> error MSG en rouge pour bienvenue.jsp et employeView.jsp
+     *                                 //1 -> Information msg en bleu pour bienvenue.jsp
+     *                                 //2 -> On affiche plus rien
+     * @throws ServletException
+     * @throws IOException 
+     */
+    private void redirectToEmployesView(HttpServletRequest request, HttpServletResponse response,int typeMessage)
+            throws ServletException, IOException{
+        
+        request.getSession().removeAttribute(EMPLOYE);
+        request.setAttribute(EMPLOYES, ds.getAllEmployes());
+        request.setAttribute(TYPE_MESSAGE,typeMessage);
+        request.getRequestDispatcher(WELCOME_PATH).forward(request, response);
+        
+    }
+    
+    /**
+     * Redirige vers l'insertion d'un employé et affiche un msg d'erreur si échec
+     * @param request
+     * @param response
+     * @param typeMessage
+     *        Values possible:         //0 -> error MSG en rouge pour bienvenue.jsp et employeView.jsp
+     *                                 //1 -> Information msg en bleu pour bienvenue.jsp
+     *                                 //2 -> On affiche plus rien
+     * @throws ServletException
+     * @throws IOException 
+     */
+    private void redirectToInsertEmployeView(HttpServletRequest request, HttpServletResponse response,String message)
+            throws ServletException, IOException{
+        
+        
+        this.actionChoosed=0;
+        
+        HttpSession session=request.getSession();
+        
+        request.setAttribute(ACTION_CHOOSED,actionChoosed);
+        request.setAttribute(ERROR_MESSAGE_EMPLOYE, message);
+        
+        if(!message.equals(EMPTY_STRING))//cela signifie qu'il s'est trompé donc on sauvegarde ce qu'il a déja ecris
+            session.setAttribute(EMPLOYE,this.buildEmploye(request, actionChoosed, true));
+        else{
+            session.setAttribute(EMPLOYE,null);
+        }
+        
+        request.getRequestDispatcher(EMPLOYE_VIEW).forward(request, response);
+    }
+
         
     
 }

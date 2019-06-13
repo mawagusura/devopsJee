@@ -65,7 +65,7 @@
                 <label class="col-sm-1 col-form-label">code Postal</label>
                 <div class="col-sm-5">
                   <input type="text" class="form-control" placeholder="cp" NAME='codePostal'
-                         value="<c:out value="${sessionScope.employe.codepostal}" default=""></c:out>">
+                         value="<c:out value="${sessionScope.employe.codePostal}" default=""></c:out>">
                 </div>
               </div>
              

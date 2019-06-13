@@ -1,12 +1,2 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Context>
-<Resource name="jdbc/projet" 
-          auth="Container" 
-          type="javax.sql.DataSource"
-          username="jee"
-          password="jee"
-          driverClassName="com.mysql.jdbc.Driver"
-          url="jdbc:mysql:/165.22.192.41:3306/projet"
-          maxActive="15"
-          maxIdle="3"/>
-</Context>
+<Context path=""/>

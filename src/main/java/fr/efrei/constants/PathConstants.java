@@ -1,7 +1,7 @@
 package fr.efrei.constants;
 
 /**
- * Stock toutes les routes de notre programme
+ * Recence toutes les constantes de routes pour nos jsp
  * @author Clément
  */
 public final class PathConstants {
@@ -9,5 +9,5 @@ public final class PathConstants {
     public final static String INDEX_PATH="WEB-INF/index.jsp";
     public final static String WELCOME_PATH="WEB-INF/bienvenue.jsp";
     public final static String EMPLOYE_VIEW="WEB-INF/employeView.jsp";
-    public final static String DISCONNECT_VIEW="WEB-INF/aurevoir.jsp";
+    public final static String GOODBYE_VIEW="WEB-INF/aurevoir.jsp";
 }
