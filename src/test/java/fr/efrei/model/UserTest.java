@@ -60,7 +60,7 @@ public class UserTest {
         
         ids.add(instance); //to simulate that connection is accepted
         
-        boolean expResult = false;
+        boolean expResult = true;
         boolean result = instance.isCorrect(ids);
         assertEquals(expResult, result);
     }
