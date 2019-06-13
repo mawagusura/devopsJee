@@ -25,7 +25,7 @@
                         <h3 class="panel-title">Login</h3>
                     </div>
                     <div class="card-body">
-                        <form method="POST" action="/projetJEEMaven">
+                        <form method="POST" action="./projetJEEMaven">
                             <fieldset>
                                 
                                 <div class="form-group">
