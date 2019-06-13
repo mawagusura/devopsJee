@@ -26,7 +26,7 @@ pipeline {
         }
         stage ('Deploy') {
             steps {
-                sh 'docker cp /var/jenkins_home/workspace/DevOps/target/projetJEEMaven-1.0-SNAPSHOT.war my-tomcat-container:/usr/local/tomcat/webapps/projetJEEMaven.war' 
+                sh 'docker cp /var/jenkins_home/workspace/DevOps/target/projetJEEMaven-1.0-SNAPSHOT.war my-tomcat-container:/usr/local/tomcat/webapps/devOps.war' 
             }
         }
     }
