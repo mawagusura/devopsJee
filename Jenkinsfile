@@ -2,7 +2,7 @@ pipeline {
     agent any
         tools { 
         maven 'Maven' 
-        jdk 'jdk8' 
+        jdk 'jdk7' 
     }
     stages {
         stage ('Initialize') {
@@ -26,7 +26,7 @@ pipeline {
         }
         stage ('Deploy') {
             steps {
-                sh 'docker cp /var/jenkins_home/workspace/DevOps/target/projetJEEMaven-1.0-SNAPSHOT.war my-tomcat-container:/usr/local/tomcat/webapps' 
+                sh 'docker cp /var/jenkins_home/workspace/DevOps/target/projetJEEMaven-1.0-SNAPSHOT.war my-tomcat-container:/usr/local/tomcat/webapps/projetJEEMaven.war' 
             }
         }
     }
