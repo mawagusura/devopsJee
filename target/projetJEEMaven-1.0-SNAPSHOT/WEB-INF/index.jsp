@@ -9,7 +9,7 @@
 <html lang="en">
 
     <body>
-        <h1>Login</h1>
+        <h1>Loginn</h1>
         <!-- /.navbar-top-links -->
         <div class="container">
             <c:if test="${requestScope.errorMessage !=null}">
