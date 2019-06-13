@@ -19,7 +19,7 @@
                 
                 
             </div>
-         <form method="POST" action="/projetJEEMaven" >
+         <form method="POST" action="./projetJEEMaven" >
             <div class="form-group row">
               <label class="col-sm-1 col-form-label">Nom</label>
               <div class="col-sm-11">

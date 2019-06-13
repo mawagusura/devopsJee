@@ -45,7 +45,7 @@
 
                         </div>
                         <!-- /.panel-heading -->
-                        <form method="POST" action="/projetJEEMaven">  
+                        <form method="POST" action="./projetJEEMaven">  
                         <c:choose>
                             <c:when test="${requestScope.employes.size() !=0}">
 

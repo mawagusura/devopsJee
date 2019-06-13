@@ -19,6 +19,6 @@
         </div>
         <br>
         <br>
-        <a type="button" class="btn btn-dark" href="/projetJEEMaven">Proceed</a>
+        <a type="button" class="btn btn-dark" href="./projetJEEMaven">Proceed</a>
     </body>
 </html>
