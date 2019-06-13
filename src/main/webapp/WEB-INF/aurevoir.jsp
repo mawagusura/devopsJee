@@ -8,7 +8,7 @@
 <!DOCTYPE html>
 <html>
     <body>
-        <h1>Déconnexion</h1>
+        <h1>Déconnexionn</h1>
         <br>
         <br>
         <div class="alert alert-success" role="alert">
